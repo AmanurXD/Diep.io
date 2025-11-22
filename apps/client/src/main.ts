@@ -56,7 +56,7 @@ async function initGame() {
 
 
 
-  // --- Render Loop && Interpolation Helper ---
+  // --- Render Loop ---
   const lerp = (start: number, end: number, t: number) => {
     return start + (end - start) * t;
   };
@@ -77,13 +77,19 @@ async function initGame() {
            sprite.fill(0x00b2e1); // Blue tank
            sprite.stroke({ width: 3, color: 0x0085a8 });
            
-           // Simple Gun Barrel (Visual only for now)
+           // Simple Gun Barrel
            const barrel = new Graphics();
            barrel.rect(0, -10, 40, 20);
            barrel.fill(0x999999);
            barrel.stroke({ width: 3, color: 0x727272 });
            barrel.x = 15; 
-           sprite.addChildAt(barrel, 0); // Draw barrel behind body
+           sprite.addChildAt(barrel, 0); 
+        }
+        // NEW: Bullet Rendering
+        else if (snap.type === EntityType.BULLET) {
+           sprite.circle(0, 0, 10); // Radius 10
+           sprite.fill(0xF14E54);   // Red
+           sprite.stroke({ width: 2, color: 0xB43A3F });
         }
         sprite.x = snap.x;
         sprite.y = snap.y;
@@ -91,21 +97,35 @@ async function initGame() {
         worldContainer.addChild(sprite);
       }
 
-      // Interpolate Position (Visual Smoothing)
-      // We use a simple 10% slide per frame. 
-      // For production, we would use timestamps for perfect sync.
-      sprite.x = lerp(sprite.x, snap.x, 0.1);
-      sprite.y = lerp(sprite.y, snap.y, 0.1);
+      // Interpolation
+      sprite.x = lerp(sprite.x, snap.x, 0.2);
+      sprite.y = lerp(sprite.y, snap.y, 0.2);
       sprite.rotation = snap.rotation;
+
+      // --- Camera Logic: Track the first Player we see ---
+      if (!myPlayer && snap.type === EntityType.PLAYER) {
+        myPlayer = snap;
+      }
     }
 
-    // Cleanup missing entities (Disconnects/Deaths)
+    // Remove dead entities
     for (const [id, sprite] of entities) {
       if (!seenIds.has(id)) {
         worldContainer.removeChild(sprite);
         sprite.destroy();
         entities.delete(id);
       }
+    }
+
+    // ⭐ THIS IS THE MISSING PART THAT FIXES THE BLUE SCREEN ⭐
+    if (myPlayer) {
+      // Calculate where the world needs to move to keep player in center
+      const targetX = -myPlayer.x + app.screen.width / 2;
+      const targetY = -myPlayer.y + app.screen.height / 2;
+      
+      // Smooth camera follow
+      worldContainer.x = lerp(worldContainer.x, targetX, 0.1);
+      worldContainer.y = lerp(worldContainer.y, targetY, 0.1);
     }
   });
 }

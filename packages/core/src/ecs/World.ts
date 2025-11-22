@@ -1,77 +1,60 @@
 import { EntityManager } from './EntityManager';
 import { ComponentStorage } from './ComponentStorage';
+import { EntityType } from '../index';
 
 export class World {
   public entityManager: EntityManager;
 
-  // --- COMPONENTS (Structure of Arrays) ---
-
-  // Transform
+  // --- TRANSFORM ---
   public x: ComponentStorage<Float32Array>;
   public y: ComponentStorage<Float32Array>;
   public rotation: ComponentStorage<Float32Array>;
 
-  // Velocity
+  // --- PHYSICS ---
   public vx: ComponentStorage<Float32Array>;
   public vy: ComponentStorage<Float32Array>;
-  
-  // --- NEW: Input Components ---
-  // Bitmask: [Bit 0: Up, 1: Down, 2: Left, 3: Right, 4: Shoot]
-  public inputMask: ComponentStorage<Uint8Array>;
-
-  // Mouse Angle in Radians (Server stores radians for math, receives compressed byte)
-  public mouseAngle: ComponentStorage<Float32Array>;
-
-  // Physics
   public radius: ComponentStorage<Float32Array>;
   public mass: ComponentStorage<Float32Array>;
-  // Active flag: 0 = dead, 1 = active. 
-  // Using Uint8 allows us to use bitwise flags later if needed.
   public active: ComponentStorage<Uint8Array>;
 
-  // Identity
-  // Type ID (0=Player, 1=Bullet, etc.)
+  // --- IDENTITY ---
   public type: ComponentStorage<Uint8Array>;
-  
-  // Optional: Player Owner ID (for bullets/drones)
-  public ownerId: ComponentStorage<Int16Array>;
+  public ownerId: ComponentStorage<Int32Array>; // Changed to Int32 for safety (-1 support)
+
+  // --- INPUT ---
+  public inputMask: ComponentStorage<Uint8Array>;
+  public mouseAngle: ComponentStorage<Float32Array>;
+
+  // --- GAMEPLAY (NEW) ---
+  public reloadTimer: ComponentStorage<Float32Array>; // Cooldown in seconds
+  public timeToLive: ComponentStorage<Float32Array>;  // Lifetime in seconds (0 = infinite)
 
   constructor() {
     this.entityManager = new EntityManager();
 
-    // Initialize Arrays
-    // Float32 is standard for positions/physics (precision vs memory balance)
+    // Init Arrays
     this.x = new ComponentStorage(Float32Array);
     this.y = new ComponentStorage(Float32Array);
     this.rotation = new ComponentStorage(Float32Array);
-
     this.vx = new ComponentStorage(Float32Array);
     this.vy = new ComponentStorage(Float32Array);
-
-    // Initialize Input Storage
-    this.inputMask = new ComponentStorage(Uint8Array);
-    this.mouseAngle = new ComponentStorage(Float32Array);
-
     this.radius = new ComponentStorage(Float32Array);
     this.mass = new ComponentStorage(Float32Array);
-    
-    // Uint8 is sufficient for booleans/enums < 255
     this.active = new ComponentStorage(Uint8Array);
     this.type = new ComponentStorage(Uint8Array);
+    this.ownerId = new ComponentStorage(Int32Array);
+    this.inputMask = new ComponentStorage(Uint8Array);
+    this.mouseAngle = new ComponentStorage(Float32Array);
     
-    // Int16 allows IDs up to 32,767 (sufficient for MAX_ENTITIES 10,000)
-    this.ownerId = new ComponentStorage(Int16Array);
+    // New Gameplay Arrays
+    this.reloadTimer = new ComponentStorage(Float32Array);
+    this.timeToLive = new ComponentStorage(Float32Array);
   }
 
-  /**
-   * Spawns a new entity and returns its ID.
-   * Automatically resets component data for that ID.
-   */
   public createEntity(): number {
     const id = this.entityManager.createEntity();
     
-    // Reset basic components to ensure no "ghost" velocity/logic
-    // from the previous user of this ID.
+    // Reset all components to safe defaults
     this.x.reset(id);
     this.y.reset(id);
     this.rotation.reset(id);
@@ -79,20 +62,48 @@ export class World {
     this.vy.reset(id);
     this.radius.reset(id);
     this.mass.reset(id);
-    this.active.data[id] = 1; // Mark as active immediately
+    this.active.data[id] = 1;
     this.type.reset(id);
-    this.ownerId.reset(id);
-    // Reset Input
+    this.ownerId.data[id] = -1; // Default to no owner
     this.inputMask.reset(id);
     this.mouseAngle.reset(id);
+    this.reloadTimer.reset(id);
+    this.timeToLive.reset(id);
+
     return id;
   }
 
-  /**
-   * Removes an entity.
-   */
   public destroyEntity(id: number): void {
-    this.active.data[id] = 0; // Mark inactive immediately
+    this.active.data[id] = 0;
     this.entityManager.removeEntity(id);
+  }
+
+  /**
+   * Helper to spawn a standard bullet
+   */
+  public spawnBullet(ownerId: number, x: number, y: number, angle: number): void {
+    const id = this.createEntity();
+    
+    // 1. Stats
+    const speed = 600;
+    const lifetime = 3.0; // 3 seconds
+    const bulletRadius = 10;
+
+    // 2. Position (Offset slightly so it doesn't spawn INSIDE the tank)
+    // Tank Radius ~25, Bullet Radius ~10. Offset = 35.
+    const offset = 35;
+    this.x.data[id] = x + Math.cos(angle) * offset;
+    this.y.data[id] = y + Math.sin(angle) * offset;
+    
+    // 3. Velocity
+    this.vx.data[id] = Math.cos(angle) * speed;
+    this.vy.data[id] = Math.sin(angle) * speed;
+
+    // 4. Components
+    this.rotation.data[id] = angle;
+    this.radius.data[id] = bulletRadius;
+    this.type.data[id] = EntityType.BULLET;
+    this.ownerId.data[id] = ownerId;
+    this.timeToLive.data[id] = lifetime;
   }
 }

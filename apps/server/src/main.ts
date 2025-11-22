@@ -10,6 +10,10 @@ import {
   PacketType 
 } from '@diep/core';
 
+// NEW IMPORTS
+import { ShootingSystem } from '@diep/core/src/ecs/systems/ShootingSystem';
+import { LifetimeSystem } from '@diep/core/src/ecs/systems/LifetimeSystem';
+
 
 const PORT = 9001;
 const BROADCAST_TOPIC = 'game-state';
@@ -17,6 +21,8 @@ const BROADCAST_TOPIC = 'game-state';
 // 1. Initialize ECS and Physics
 const world = new World();
 const movementSystem = new MovementSystem();
+const shootingSystem = new ShootingSystem(); // NEW
+const lifetimeSystem = new LifetimeSystem(); // NEW
 // 5000x5000 map, 100 unit cells
 const spatialHash = new SpatialHashGrid(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 100);
 const packetBuilder = new PacketBuilder();
@@ -101,8 +107,10 @@ function startGameLoop(server: TemplatedApp) {
   const dt = 1 / GAME_CONFIG.SERVER_TICK_RATE; // 0.05s
 
   setInterval(() => {
-    // A. Systems Update
+    // A. Logic Systems
+    shootingSystem.update(dt, world);
     movementSystem.update(dt, world);
+    lifetimeSystem.update(dt, world);
 
     // B. Physics Update (Spatial Hash)
     spatialHash.clear();
