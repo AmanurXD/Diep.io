@@ -15,36 +15,73 @@ export class InputManager {
   // Transmission Loop
   private intervalId: number | null = null;
 
+
+  // Bound Event Handlers (Stored to allow removal)
+  private handleKeyDown: (e: KeyboardEvent) => void;
+  private handleKeyUp: (e: KeyboardEvent) => void;
+  private handleMouseMove: (e: MouseEvent) => void;
+  private handleMouseDown: () => void;
+  private handleMouseUp: () => void;
+
+
   constructor(socket: WebSocket, canvas: HTMLCanvasElement) {
     this.socket = socket;
     this.canvas = canvas;
+
+    // Bind methods once
+    this.handleKeyDown = (e) => this.onKeyDown(e);
+    this.handleKeyUp = (e) => this.onKeyUp(e);
+    this.handleMouseMove = (e) => this.onMouseMove(e);
+    this.handleMouseDown = () => { this.isShooting = true; };
+    this.handleMouseUp = () => { this.isShooting = false; };
+
     this.setupListeners();
     this.startTransmission();
   }
 
   private setupListeners() {
-    window.addEventListener('keydown', (e) => {
-      if (this.keys.hasOwnProperty(e.key)) {
-        (this.keys as any)[e.key] = true;
-      }
-    });
-
-    window.addEventListener('keyup', (e) => {
-      if (this.keys.hasOwnProperty(e.key)) {
-        (this.keys as any)[e.key] = false;
-      }
-    });
-
-    window.addEventListener('mousemove', (e) => {
-      // Calculate angle relative to center of screen (since camera is centered on player)
-      const centerX = window.innerWidth / 2;
-      const centerY = window.innerHeight / 2;
-      this.mouseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-    });
-
-    window.addEventListener('mousedown', () => { this.isShooting = true; });
-    window.addEventListener('mouseup', () => { this.isShooting = false; });
+    window.addEventListener('keydown', this.handleKeyDown);
+    window.addEventListener('keyup', this.handleKeyUp);
+    window.addEventListener('mousemove', this.handleMouseMove);
+    window.addEventListener('mousedown', this.handleMouseDown);
+    window.addEventListener('mouseup', this.handleMouseUp);
   }
+
+
+  public destroy() {
+    if (this.intervalId !== null) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+
+    window.removeEventListener('keydown', this.handleKeyDown);
+    window.removeEventListener('keyup', this.handleKeyUp);
+    window.removeEventListener('mousemove', this.handleMouseMove);
+    window.removeEventListener('mousedown', this.handleMouseDown);
+    window.removeEventListener('mouseup', this.handleMouseUp);
+  }
+
+
+
+  private onKeyDown(e: KeyboardEvent) {
+    if (this.keys.hasOwnProperty(e.key)) {
+      (this.keys as any)[e.key] = true;
+    }
+  }
+
+  private onKeyUp(e: KeyboardEvent) {
+    if (this.keys.hasOwnProperty(e.key)) {
+      (this.keys as any)[e.key] = false;
+    }
+  }
+
+  private onMouseMove(e: MouseEvent) {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    this.mouseAngle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
+  }
+
+
 
   private startTransmission() {
     // Send input at 20Hz (50ms)
