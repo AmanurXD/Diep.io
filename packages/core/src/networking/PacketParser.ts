@@ -7,6 +7,7 @@ export interface EntitySnapshot {
   x: number;
   y: number;
   rotation: number;
+  health: number; // 0-255
 }
 
 export class PacketParser {
@@ -46,12 +47,17 @@ export class PacketParser {
       const rotRaw = view.getUint8(offset);
       offset += 1;
 
+      // NEW: Read Health
+      const hpRaw = view.getUint8(offset);
+      offset += 1;
+
       snapshots.push({
         id,
         type,
         x: decompressPosition(xRaw),
         y: decompressPosition(yRaw),
-        rotation: decompressRotation(rotRaw)
+        rotation: decompressRotation(rotRaw),
+        health: hpRaw // Store raw byte (0-255)
       });
     }
 

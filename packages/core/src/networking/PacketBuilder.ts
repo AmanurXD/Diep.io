@@ -3,7 +3,7 @@ import { MAX_ENTITIES } from '../ecs/constants';
 import { PacketType } from '../ecs/Types';
 import { compressPosition, compressRotation } from './utils';
 
-const BYTES_PER_ENTITY = 8;
+const BYTES_PER_ENTITY = 9; // Increased from 8 to 9
 // Header: OpCode (1) + Count (2) = 3 bytes
 const HEADER_SIZE = 3; 
 // 16KB Buffer (Approx 2000 entities max per packet)
@@ -58,8 +58,22 @@ export class PacketBuilder {
       this.view.setUint16(offset, i, true); // Little Endian
       offset += 2;
 
-      // Type (Uint8)
-      this.view.setUint8(offset, type[i]);
+      // Rotation (Uint8)
+      this.view.setUint8(offset, compressRotation(rot[i]));
+      offset += 1;
+
+      // NEW: Health (Uint8) -> Percentage 0-255
+      const hp = world.health.data[i];
+      const max = world.maxHealth.data[i];
+      let hpByte = 0;
+      
+      if (max > 0) {
+        // Calculate percentage
+        const percent = Math.max(0, Math.min(1, hp / max));
+        hpByte = Math.floor(percent * 255);
+      }
+      
+      this.view.setUint8(offset, hpByte);
       offset += 1;
 
       // X (Int16)

@@ -13,7 +13,7 @@ import {
 // NEW IMPORTS
 import { ShootingSystem } from '@diep/core/src/ecs/systems/ShootingSystem';
 import { LifetimeSystem } from '@diep/core/src/ecs/systems/LifetimeSystem';
-
+import { CollisionSystem } from '@diep/core/src/ecs/systems/CollisionSystem';
 
 const PORT = 9001;
 const BROADCAST_TOPIC = 'game-state';
@@ -25,6 +25,7 @@ const shootingSystem = new ShootingSystem(); // NEW
 const lifetimeSystem = new LifetimeSystem(); // NEW
 // 5000x5000 map, 100 unit cells
 const spatialHash = new SpatialHashGrid(GAME_CONFIG.WIDTH, GAME_CONFIG.HEIGHT, 100);
+const collisionSystem = new CollisionSystem(spatialHash); // Inject Hash
 const packetBuilder = new PacketBuilder();
 
 // User Data Interface for the WebSocket
@@ -81,6 +82,10 @@ const app = App()
       world.vy.data[id] = (Math.random() - 0.5) * 100;
       world.radius.data[id] = 25;
 
+      // NEW: Health Stats
+      world.health.data[id] = 100;
+      world.maxHealth.data[id] = 100;
+
       ws.getUserData().entityId = id;
 
       console.log(`Client connected. Spawned Entity ${id} at ${startX.toFixed(0)}, ${startY.toFixed(0)}`);
@@ -128,7 +133,12 @@ function startGameLoop(server: TemplatedApp) {
          spatialHash.insert(i, x[i], y[i]);
       }
     }
-
+    // 3. Resolve Collisions
+    collisionSystem.update(dt, world);
+    
+    // 4. Cleanup
+    lifetimeSystem.update(dt, world);
+    
     // C. Serialize State
     const dataView = packetBuilder.createUpdatePacket(world);
 

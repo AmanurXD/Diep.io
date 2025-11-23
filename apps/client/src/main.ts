@@ -102,6 +102,36 @@ async function initGame() {
       sprite.y = lerp(sprite.y, snap.y, 0.2);
       sprite.rotation = snap.rotation;
 
+      // NEW: Health Bar Logic
+      // Only show for Players (or bosses later)
+      if (snap.type === EntityType.PLAYER) {
+        
+        // Check if we already have a health bar child
+        // We assume child index 1 is the health bar (0 is barrel)
+        // Better approach: assign a name or property, but by index is faster.
+        let healthBar = sprite.getChildByName('hp_bar') as Graphics;
+        
+        if (!healthBar) {
+            healthBar = new Graphics();
+            healthBar.label = 'hp_bar';
+            healthBar.y = 35; // Position below tank
+            sprite.addChild(healthBar);
+        }
+        
+        healthBar.clear();
+        
+        // Background (Grey)
+        healthBar.rect(-20, 0, 40, 6);
+        healthBar.fill(0x555555);
+        
+        // Foreground (Green -> Red)
+        const pct = snap.health / 255;
+        const color = pct > 0.5 ? 0x00FF00 : 0xFF0000;
+        
+        healthBar.rect(-20, 0, 40 * pct, 6);
+        healthBar.fill(color);
+      }
+
       // --- Camera Logic: Track the first Player we see ---
       if (!myPlayer && snap.type === EntityType.PLAYER) {
         myPlayer = snap;

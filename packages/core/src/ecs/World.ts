@@ -17,6 +17,11 @@ export class World {
   public mass: ComponentStorage<Float32Array>;
   public active: ComponentStorage<Uint8Array>;
 
+  // --- COMBAT (NEW) ---
+  public health: ComponentStorage<Float32Array>;
+  public maxHealth: ComponentStorage<Float32Array>;
+  public damage: ComponentStorage<Float32Array>;
+
   // --- IDENTITY ---
   public type: ComponentStorage<Uint8Array>;
   public ownerId: ComponentStorage<Int32Array>; // Changed to Int32 for safety (-1 support)
@@ -49,6 +54,10 @@ export class World {
     // New Gameplay Arrays
     this.reloadTimer = new ComponentStorage(Float32Array);
     this.timeToLive = new ComponentStorage(Float32Array);
+    // Init New Arrays
+    this.health = new ComponentStorage(Float32Array);
+    this.maxHealth = new ComponentStorage(Float32Array);
+    this.damage = new ComponentStorage(Float32Array);
   }
 
   public createEntity(): number {
@@ -70,6 +79,11 @@ export class World {
     this.reloadTimer.reset(id);
     this.timeToLive.reset(id);
 
+    // Reset New Components
+    this.health.reset(id);
+    this.maxHealth.reset(id);
+    this.damage.reset(id);
+
     return id;
   }
 
@@ -88,6 +102,7 @@ export class World {
     const speed = 600;
     const lifetime = 3.0; // 3 seconds
     const bulletRadius = 10;
+    const bulletDamage = 10; // Standard damage
 
     // 2. Position (Offset slightly so it doesn't spawn INSIDE the tank)
     // Tank Radius ~25, Bullet Radius ~10. Offset = 35.
@@ -105,5 +120,11 @@ export class World {
     this.type.data[id] = EntityType.BULLET;
     this.ownerId.data[id] = ownerId;
     this.timeToLive.data[id] = lifetime;
+
+    // Bullet Stats
+    this.damage.data[id] = bulletDamage;
+    this.health.data[id] = 1; // Bullets technically have 1 HP
+    this.maxHealth.data[id] = 1;
+
   }
 }
