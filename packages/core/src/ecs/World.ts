@@ -1,9 +1,14 @@
 import { EntityManager } from './EntityManager';
 import { ComponentStorage } from './ComponentStorage';
 import { EntityType } from '../index';
+import { System } from './systems/System';
+import { MAX_ENTITIES } from './constants';
+
+
 
 export class World {
   public entityManager: EntityManager;
+  public systems: System[] = [];
 
   // --- TRANSFORM ---
   public x: ComponentStorage<Float32Array>;
@@ -88,9 +93,31 @@ export class World {
   }
 
   public destroyEntity(id: number): void {
+    // 1. SAFEGUARD: If already dead/inactive, do nothing.
+    if (this.active.data[id] === 0) {
+      return;
+    }
+
+    // 2. Mark inactive immediately
     this.active.data[id] = 0;
+
+    // 3. Clear critical data (Optional but good for debugging)
+    this.type.data[id] = 0;
+
+    // 4. Return ID to the pool
     this.entityManager.removeEntity(id);
   }
+
+  public addSystem(system: System): void {
+    this.systems.push(system);
+  }
+
+  public update(dt: number): void {
+    for (const system of this.systems) {
+      system.update(dt, this);
+    }
+  }
+
 
   /**
    * Helper to spawn a standard bullet
