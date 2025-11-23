@@ -1,6 +1,7 @@
 import { Application, Graphics, Container } from 'pixi.js';
-import { PacketParser, EntitySnapshot, EntityType } from '@diep/core';
+import { PacketParser, EntitySnapshot, EntityType, PacketType } from '@diep/core';
 import { InputManager } from './InputManager';
+
 
 // 1. Setup Pixi Application (v8 syntax)
 const app = new Application();
@@ -20,6 +21,7 @@ async function initGame() {
   const entities = new Map<number, Graphics>();
   const parser = new PacketParser();
   let serverSnapshots: EntitySnapshot[] = [];
+  let myEntityId = -1;
 
   // Container for game world (camera logic goes here later)
   const worldContainer = new Container();
@@ -42,20 +44,28 @@ async function initGame() {
 
   socket.onopen = () => {
     console.log('Connected to Game Server');
-     // Initialize Input Manager
-    inputManager = new InputManager(socket, app.canvas);   
+    inputManager = new InputManager(socket, app.canvas);
   };
 
+  // NEW: Handle JOIN vs UPDATE packets
   socket.onmessage = (event) => {
     const buffer = event.data as ArrayBuffer;
-    const data = parser.parseUpdatePacket(buffer);
-    
-    if (data) {
-      serverSnapshots = data;
+    const view = new DataView(buffer);
+    const opCode = view.getUint8(0);
+
+    // 1. Handshake Packet
+    if (opCode === PacketType.JOIN) {
+      myEntityId = view.getUint16(1, true);
+      console.log("✅ Identity Received: Entity ID", myEntityId);
+    } 
+    // 2. Update Packet
+    else if (opCode === PacketType.UPDATE) {
+      const data = parser.parseUpdatePacket(buffer);
+      if (data) {
+        serverSnapshots = data;
+      }
     }
   };
-
-
 
   // --- Render Loop ---
   const lerp = (start: number, end: number, t: number) => {
@@ -133,8 +143,9 @@ async function initGame() {
         healthBar.fill(color);
       }
 
-      // --- Camera Logic: Track the first Player we see ---
-      if (!myPlayer && snap.type === EntityType.PLAYER) {
+      // --- FIXED CAMERA & INPUT LOGIC ---
+      // Only track the entity that matches our ID from the handshake
+      if (snap.id === myEntityId) {
         myPlayer = snap;
       }
     }
@@ -148,13 +159,11 @@ async function initGame() {
       }
     }
 
-    // ⭐ THIS IS THE MISSING PART THAT FIXES THE BLUE SCREEN ⭐
+    // Center Camera on OUR player
     if (myPlayer) {
-      // Calculate where the world needs to move to keep player in center
       const targetX = -myPlayer.x + app.screen.width / 2;
       const targetY = -myPlayer.y + app.screen.height / 2;
       
-      // Smooth camera follow
       worldContainer.x = lerp(worldContainer.x, targetX, 0.1);
       worldContainer.y = lerp(worldContainer.y, targetY, 0.1);
     }

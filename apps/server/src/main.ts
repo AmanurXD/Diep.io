@@ -89,7 +89,16 @@ const app = App()
       ws.getUserData().entityId = id;
 
       console.log(`Client connected. Spawned Entity ${id} at ${startX.toFixed(0)}, ${startY.toFixed(0)}`);
+      // --- NEW: Send JOIN Packet (Handshake) ---
+      // Format: [OpCode(1)] [EntityID(2)]
+      const handshakeBuffer = new ArrayBuffer(3);
+      const view = new DataView(handshakeBuffer);
+      view.setUint8(0, PacketType.JOIN); // OpCode 1
+      view.setUint16(1, id, true);       // Little Endian
+      
+      ws.send(handshakeBuffer, true);    // Send as binary
     },
+    
     close: (ws, code, message) => {
       const { entityId } = ws.getUserData();
       console.log(`Client disconnected. Removing Entity ${entityId}`);

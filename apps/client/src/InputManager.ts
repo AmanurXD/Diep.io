@@ -3,7 +3,7 @@ import { PacketType, compressRotation } from '@diep/core';
 export class InputManager {
   private socket: WebSocket;
   private canvas: HTMLCanvasElement;
-  
+
   // Input State
   private keys = {
     w: false, a: false, s: false, d: false,
