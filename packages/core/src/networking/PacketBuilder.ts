@@ -52,40 +52,39 @@ export class PacketBuilder {
         break;
       }
 
+
+
       // --- Write Entity Data ---
       
-      // ID (Uint16)
-      this.view.setUint16(offset, i, true); // Little Endian
+      // 1. ID (Uint16)
+      this.view.setUint16(offset, i, true); 
       offset += 2;
 
-      // Rotation (Uint8)
-      this.view.setUint8(offset, compressRotation(rot[i]));
+      // 2. Type (Uint8)
+      this.view.setUint8(offset, type[i]);
       offset += 1;
 
-      // NEW: Health (Uint8) -> Percentage 0-255
-      const hp = world.health.data[i];
-      const max = world.maxHealth.data[i];
-      let hpByte = 0;
-      
-      if (max > 0) {
-        // Calculate percentage
-        const percent = Math.max(0, Math.min(1, hp / max));
-        hpByte = Math.floor(percent * 255);
-      }
-      
-      this.view.setUint8(offset, hpByte);
-      offset += 1;
-
-      // X (Int16)
+      // 3. X (Int16)
       this.view.setInt16(offset, compressPosition(x[i]), true);
       offset += 2;
 
-      // Y (Int16)
+      // 4. Y (Int16)
       this.view.setInt16(offset, compressPosition(y[i]), true);
       offset += 2;
 
-      // Rotation (Uint8)
+      // 5. Rotation (Uint8)
       this.view.setUint8(offset, compressRotation(rot[i]));
+      offset += 1;
+
+      // 6. Health (Uint8)
+      const hp = world.health.data[i];
+      const max = world.maxHealth.data[i];
+      let hpByte = 0;
+      if (max > 0) {
+        const percent = Math.max(0, Math.min(1, hp / max));
+        hpByte = Math.floor(percent * 255);
+      }
+      this.view.setUint8(offset, hpByte);
       offset += 1;
 
       entityCount++;

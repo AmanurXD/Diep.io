@@ -107,6 +107,15 @@ app.listen(PORT, (token) => {
   }
 });
 
+// Passing "0.0.0.0" as the host allows external connections
+app.listen("0.0.0.0", PORT, (token) => {
+  if (token) {
+    console.log('Listening to port 3000 on all interfaces');
+  } else {
+    console.log('Failed to listen to port 3000');
+  }
+});
+
 // 3. The Game Loop
 function startGameLoop(server: TemplatedApp) {
   const dt = 1 / GAME_CONFIG.SERVER_TICK_RATE; // 0.05s

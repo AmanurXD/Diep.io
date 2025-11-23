@@ -36,7 +36,8 @@ async function initGame() {
   app.stage.addChild(worldContainer);
 
   // 2. Networking
-  const socket = new WebSocket('ws://localhost:9001');
+  // Automatically uses the IP you used to load the page (e.g., 192.168.0.109)
+  const socket = new WebSocket(`ws://${window.location.hostname}:9001`);
   socket.binaryType = 'arraybuffer';
 
   socket.onopen = () => {
