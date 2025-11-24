@@ -92,9 +92,13 @@ export class World {
     return id;
   }
 
+  // 🔒 Track recently destroyed entities for client sync
+  private recentlyDestroyed: Set<number> = new Set();
+
   public destroyEntity(id: number): void {
     // 1. SAFEGUARD: If already dead/inactive, do nothing.
     if (this.active.data[id] === 0) {
+      console.warn(`⚠️ Attempted to destroy already inactive entity ${id}`);
       return;
     }
 
@@ -102,11 +106,39 @@ export class World {
     this.active.data[id] = 0;
 
     // 3. Clear critical data (Optional but good for debugging)
+    // 4. Clear critical data that could cause "ghost" behavior
     this.type.data[id] = 0;
+    this.ownerId.data[id] = -1;
 
-    // 4. Return ID to the pool
+    // Important: Keep position data for smooth client-side interpolation
+    // but clear movement/control data
+    this.vx.data[id] = 0;
+    this.vy.data[id] = 0;
+    this.inputMask.data[id] = 0;
+
+    // 5. Return ID to the pool (with timestamp protection)
     this.entityManager.removeEntity(id);
+
+    console.log(`💀 Destroyed entity ${id}, active count: ${this.entityManager.count}`);
   }
+
+
+  /**
+   * Clean up the recently destroyed set to prevent memory leaks
+   * Call this after broadcasting destruction to clients
+   */
+  public cleanupDestroyedEntities(): void {
+    this.recentlyDestroyed.clear();
+  }
+
+
+  /**
+   * Check if an entity was recently destroyed (for client validation)
+   */
+  public wasRecentlyDestroyed(id: number): boolean {
+    return this.recentlyDestroyed.has(id);
+  }
+
 
   public addSystem(system: System): void {
     this.systems.push(system);

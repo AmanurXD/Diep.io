@@ -118,25 +118,28 @@ function cleanupGameState() {
     serverSnapshots = [];
 }
 
-// Handles death event
-function handleDeath() {
-  // Only trigger death if not already dead
-  if (gameState === 'dead') return; 
+// Enhanced death handler
+function handleDeath(reason: string = "unknown") {
+  if (gameState === 'dead') return;
   
-  console.log("💀 YOU DIED (ID Lost, Recycled, or Disconnected)");
+  console.log(`💀 YOU DIED: ${reason}`);
   gameState = 'dead';
   myEntityId = -1;
 
-  // Stop sending inputs
+  // Stop sending inputs immediately
   if (inputManager) {
-      inputManager.destroy();
-      inputManager = null;
+    inputManager.destroy();
+    inputManager = null;
   }
 
-  // Show UI
+  // Show death UI with reason
+  gameOverDiv.innerHTML = `
+    <h2 style="margin: 0 0 10px 0; color: #ff4444;">YOU DIED</h2>
+    <p style="margin: 0 0 8px 0; font-size: 16px;">${reason}</p>
+    <p style="margin: 0; font-size: 14px; opacity: 0.8;">Click to Respawn</p>
+  `;
   gameOverDiv.style.display = 'block';
-};
-
+}
 // --- Connection Management ---
 function connectToServer() {
     // Clean up previous game state before starting new connection
@@ -171,8 +174,18 @@ function connectToServer() {
     }
 }
 
+
+// Add to game state
+let lastServerUpdate = Date.now();
+const SERVER_TIMEOUT_MS = 3000; // 3 second timeout
+
+
 // --- Message Handling ---
 function handleMessage(event: MessageEvent) {
+
+    // Update last message time
+    lastServerUpdate = Date.now();
+
     // Ensure the message belongs to the current active socket
     if (event.target !== socket || !socket) return; 
 
@@ -197,12 +210,27 @@ function handleMessage(event: MessageEvent) {
     }
 };
 
+
+
+// Add heartbeat check to render loop
+
+
+
 // --- Render Loop ---
 const lerp = (start: number, end: number, t: number) => {
   return start + (end - start) * t;
 };
 
 function renderLoop() {
+
+    // Add heartbeat check to render loop
+    // Check for server timeout
+    if (Date.now() - lastServerUpdate > SERVER_TIMEOUT_MS) {
+      console.warn("🫀 No server updates, possible connection issue");
+      // Don't immediately die - wait for reconnection
+    }
+
+
     // Optimization: Don't process updates while connecting, wait for the session to stabilize.
     if (gameState === 'connecting') {
         return;

@@ -1,60 +1,88 @@
+// packages/core/src/ecs/EntityManager.ts
 import { MAX_ENTITIES } from './constants';
 
 export class EntityManager {
-  // Points to the next fresh ID to assign if recycle bin is empty
   private nextId: number = 0;
-
-  // Stack logic for recycled IDs
-  private recycledIds: Int32Array; 
+  private recycledIds: Int32Array;
   private recycledCount: number = 0;
-
-  // Track total active entities for loop limits in Systems
   public count: number = 0;
 
+  // 🔒 ID PROTECTION SYSTEM
+  private destroyedTimestamps: Int32Array; // Track when IDs were destroyed
+  private readonly RECYCLE_DELAY_MS = 5000; // 5 second safety window
+
   constructor() {
-    // Pre-allocate the recycle stack to max size to prevent resizing
     this.recycledIds = new Int32Array(MAX_ENTITIES);
+    this.destroyedTimestamps = new Int32Array(MAX_ENTITIES);
   }
 
-  /**
-   * Acquires an Entity ID.
-   * Prefers recycled IDs to keep indices low.
-   */
   public createEntity(): number {
     if (this.count >= MAX_ENTITIES) {
-      throw new Error("MAX_ENTITIES limit reached. Increase limit in constants.");
+      throw new Error("MAX_ENTITIES limit reached.");
     }
 
     this.count++;
 
-    // 1. Check recycle bin
-    if (this.recycledCount > 0) {
-      this.recycledCount--;
-      return this.recycledIds[this.recycledCount];
+    // 1. Check recycle bin with timestamp validation
+    const now = Date.now();
+    while (this.recycledCount > 0) {
+      const candidateId = this.recycledIds[this.recycledCount - 1];
+      const timeDestroyed = this.destroyedTimestamps[candidateId];
+      
+      // Only recycle if enough time has passed
+      if (now - timeDestroyed >= this.RECYCLE_DELAY_MS) {
+        this.recycledCount--;
+        console.log(`♻️ Recycled ID ${candidateId} after ${now - timeDestroyed}ms`);
+        return candidateId;
+      } else {
+        // This ID isn't safe yet, try next one
+        break;
+      }
     }
 
     // 2. Create fresh ID
-    return this.nextId++;
+    const freshId = this.nextId++;
+    if (freshId >= MAX_ENTITIES) {
+      throw new Error("MAX_ENTITIES limit reached.");
+    }
+    
+    console.log(`🆕 Created fresh ID ${freshId}`);
+    return freshId;
   }
 
-  /**
-   * Releases an Entity ID back to the pool.
-   */
   public removeEntity(id: number): void {
-    // Guard against double-freeing or invalid IDs could go here
-    // but omitted for raw performance.
+    // Record destruction timestamp
+    this.destroyedTimestamps[id] = Date.now();
     
     this.recycledIds[this.recycledCount] = id;
     this.recycledCount++;
     this.count--;
+    
+    console.log(`🗑️  Marked ID ${id} for recycling`);
   }
 
-  /**
-   * Reset the manager (e.g. map change)
-   */
   public reset(): void {
     this.nextId = 0;
     this.recycledCount = 0;
     this.count = 0;
+    this.destroyedTimestamps.fill(0);
+  }
+
+  // Debug method to check recycling status
+  public getRecycleStatus(): { available: number, delayed: number } {
+    const now = Date.now();
+    let available = 0;
+    let delayed = 0;
+
+    for (let i = 0; i < this.recycledCount; i++) {
+      const id = this.recycledIds[i];
+      if (now - this.destroyedTimestamps[id] >= this.RECYCLE_DELAY_MS) {
+        available++;
+      } else {
+        delayed++;
+      }
+    }
+
+    return { available, delayed };
   }
 }

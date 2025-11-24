@@ -43,37 +43,42 @@ const app = App().ws<UserData>('/*', {
   maxPayloadLength: 16 * 1024,
 
   open: (ws) => {
-    ws.subscribe(BROADCAST_TOPIC);
+    try {
+      ws.subscribe(BROADCAST_TOPIC);
 
-    const id = world.createEntity();
+      const id = world.createEntity();
 
-    // random safe spawn
-    const startX = 1000 + Math.random() * 3000;
-    const startY = 1000 + Math.random() * 3000;
+      // random safe spawn
+      const startX = 1000 + Math.random() * 3000;
+      const startY = 1000 + Math.random() * 3000;
 
-    world.type.data[id] = EntityType.PLAYER;
-    world.x.data[id] = startX;
-    world.y.data[id] = startY;
-    world.active.data[id] = 1;
+      world.type.data[id] = EntityType.PLAYER;
+      world.x.data[id] = startX;
+      world.y.data[id] = startY;
+      world.active.data[id] = 1;
 
-    world.vx.data[id] = 0;
-    world.vy.data[id] = 0;
-    world.radius.data[id] = 25;
+      world.vx.data[id] = 0;
+      world.vy.data[id] = 0;
+      world.radius.data[id] = 25;
 
-    // fix ghost health
-    world.health.data[id] = 100;
-    world.maxHealth.data[id] = 100;
+      // fix ghost health
+      world.health.data[id] = 100;
+      world.maxHealth.data[id] = 100;
 
-    ws.getUserData().entityId = id;
+      ws.getUserData().entityId = id;
 
-    // send JOIN packet
-    const buf = new ArrayBuffer(3);
-    const dv = new DataView(buf);
-    dv.setUint8(0, PacketType.JOIN);
-    dv.setUint16(1, id, true);
-    ws.send(buf, true);
+      // send JOIN packet
+      const buf = new ArrayBuffer(3);
+      const dv = new DataView(buf);
+      dv.setUint8(0, PacketType.JOIN);
+      dv.setUint16(1, id, true);
+      ws.send(buf, true);
 
-    console.log(`Spawned player ${id}`);
+      console.log(`🎮 Spawned player ${id} at (${startX.toFixed(0)}, ${startY.toFixed(0)})`);
+    } catch (error) {
+      console.error('❌ Failed to spawn player:', error);
+      ws.close();
+    }
   },
 
   message: (ws, message, isBinary) => {
@@ -97,14 +102,15 @@ const app = App().ws<UserData>('/*', {
     }
   },
 
-  close: (ws) => {
+  close: (ws, code) => {
     const { entityId } = ws.getUserData();
 
+    console.log(`🔌 Player ${entityId} disconnected (code: ${code})`);
+
     if (world.active.data[entityId]) {
-      console.log(`Cleaning up Entity ${entityId}`);
-      world.destroyEntity(entityId);
-    } else {
-      console.log(`Entity ${entityId} already destroyed`);
+      setTimeout(() => {
+        world.destroyEntity(entityId);
+      }, 100);
     }
   }
 });
